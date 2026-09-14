@@ -1,0 +1,11 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+const c = new Client({ name: "t", version: "1.0.0" });
+await c.connect(new StdioClientTransport({ command: "node", args: ["dist/index.js"] }));
+const r = await c.callTool({ name: "undp_list_approaches", arguments: {} });
+const t = r.content[0].text;
+console.log("chars:", t.length);
+const d = JSON.parse(t);
+console.log("total markers:", d.total);
+console.log(JSON.stringify(d.items?.slice(0, 2), null, 1).slice(0, 900));
+await c.close(); process.exit(0);
