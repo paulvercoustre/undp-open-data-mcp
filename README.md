@@ -7,13 +7,48 @@ No API key or authentication required.
 
 ## Install
 
+`dist/` is gitignored, so build after cloning:
+
 ```bash
 npm install && npm run build
 ```
 
-## Configure
+## Running it
 
-Add to your MCP client config (`claude_desktop_config.json`, `.mcp.json`, or via `claude mcp add`):
+You do not start this server yourself — the MCP client launches it on demand and
+talks to it over stdio. To check it works standalone:
+
+```bash
+npm run build && node dist/index.js
+```
+
+It should print `UNDP Open Data MCP server running on stdio` to stderr and then wait
+for JSON-RPC on stdin. Ctrl-C to stop. Nothing further will happen without a client
+attached; that is expected.
+
+To exercise every tool against the live API:
+
+```bash
+node test/smoke.mjs
+```
+
+## Connecting to Claude
+
+### Claude Code (CLI)
+
+From an interactive terminal:
+
+```bash
+claude mcp add undp-open-data --scope user -- node /Users/paulvercoustre/Documents/data_science/LLMs/undp_db_mcp/dist/index.js
+```
+
+`--scope user` makes it available in every project. Use `--scope project` instead to
+write a `.mcp.json` into the current project and share it with collaborators. Verify
+with `claude mcp list`, or `/mcp` inside a session.
+
+### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
 
 ```json
 {
@@ -25,6 +60,18 @@ Add to your MCP client config (`claude_desktop_config.json`, `.mcp.json`, or via
   }
 }
 ```
+
+Restart Claude Desktop, then check the tools appear in the MCP/tools menu.
+
+Both need the absolute path, and `node` must be on the launching process's `PATH`.
+If the client reports the server failing to start, run the `node dist/index.js`
+command above by hand — the error will be clearer there.
+
+### Asking for things once connected
+
+- "Which countries received the most UNDP funding in 2023?" → `undp_aggregate_projects`
+- "What is UNDP doing in Kenya on climate?" → `undp_list_operating_units`, then `undp_search_projects`
+- "How much has Germany contributed?" → `undp_list_donor_countries` / `undp_search_donors`
 
 ## Tools
 
