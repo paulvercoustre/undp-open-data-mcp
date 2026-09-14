@@ -135,6 +135,10 @@ Upstream quirks handled:
   link); the server uses them for real server-side pagination.
 - Output `budget`, `expenditure` and `fiscal_year` arrive as parallel arrays; `undp_get_output`
   zips them into per-year records.
+- `sdg-index` and `focus-area-index` accept an `operating_unit` parameter (it is in the published
+  spec) but return an empty array for *every* country, including ones with active projects. The
+  server detects this and returns an explicit warning naming the working alternative, rather than
+  an empty list that reads as "no such work in that country".
 - In `group_by: "donor_country"`, per-donor amounts are used rather than the project total, so
   multi-donor projects aren't counted several times over. Note that upstream includes
   non-country funders (e.g. `GFATM`, `UNDP`) in the donor-country field.

@@ -11,6 +11,27 @@ import { errorResult, jsonResult, matchesQuery, paginate, round, toNumber, trunc
 type Row = Record<string, any>;
 
 /**
+ * Upstream defect: sdg-index and focus-area-index accept `operating_unit` (it is in
+ * the published spec) but return an empty array for every value, including valid
+ * iso3 codes for countries that demonstrably have projects. Unknown parameters are
+ * ignored instead, so the filter is recognised and then silently yields nothing.
+ *
+ * An empty list reads as "UNDP does no work there", which is wrong and worse than an
+ * error, so say what happened and point at the route that does work.
+ */
+const countryFilterUnsupported = (operatingUnit: string, what: string) => ({
+  warning: "upstream_filter_unsupported",
+  message:
+    `The UNDP API accepts \`operating_unit\` on this ${what} endpoint but returns no rows for any ` +
+    `country, so this is an upstream limitation rather than an absence of data for ` +
+    `'${operatingUnit}'. Empty results here do not mean UNDP has no such work in that country.`,
+  use_instead:
+    "undp_search_projects with `operating_unit` (optionally plus `sdg`) — each project carries its " +
+    "own sdg and focus-area tags, so a country breakdown can be derived from those. " +
+    "undp_aggregate_projects also supports country and region filters.",
+});
+
+/**
  * The index endpoints embed `top_donors` / `top_recipients` arrays that dominate
  * the payload. Trim them to the fields that matter and cap the count.
  */
@@ -144,6 +165,15 @@ export function registerReferenceTools(server: McpServer): void {
       try {
         const goals = await getJson<Row[]>("/api/sdg-index.json", { year, sdg, operating_unit, budget_source });
 
+        if (goals.length === 0 && operating_unit) {
+          return jsonResult({
+            filters: { year: year ?? "current", sdg, operating_unit, budget_source },
+            total: 0,
+            items: [],
+            ...countryFilterUnsupported(operating_unit, "SDG index"),
+          });
+        }
+
         return jsonResult({
           filters: { year: year ?? "current", sdg, operating_unit, budget_source },
           total: goals.length,
@@ -234,6 +264,15 @@ export function registerReferenceTools(server: McpServer): void {
     async ({ year, operating_unit, budget_source, include_top_donors }) => {
       try {
         const areas = await getJson<Row[]>("/api/focus-area-index.json", { year, operating_unit, budget_source });
+
+        if (areas.length === 0 && operating_unit) {
+          return jsonResult({
+            filters: { year: year ?? "current", operating_unit, budget_source },
+            total: 0,
+            items: [],
+            ...countryFilterUnsupported(operating_unit, "focus area"),
+          });
+        }
 
         return jsonResult({
           filters: { year: year ?? "current", operating_unit, budget_source },
