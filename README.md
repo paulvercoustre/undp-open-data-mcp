@@ -119,6 +119,10 @@ So no tool returns a raw upstream document. Instead:
   `next_offset` back as `offset` to continue.
 - **Verbose nested data is opt-in.** Outputs, documents, locations, and `top_donors` arrays sit
   behind `include_*` flags, because they dominate the payload when left in.
+- **Text search covers the whole result set.** `query` on `undp_search_projects` pulls every
+  project matching the structured filters (pages fetched concurrently, ~2.5 s cold for a full
+  year, then cached) and matches title and description across all of them, so counts are real
+  rather than whatever landed on the first page.
 - **Aggregation happens server-side.** `undp_aggregate_projects` reduces a whole year of
   projects to ranked totals, so "which countries received the most funding in 2023" costs one
   call instead of paging through 4,619 records.

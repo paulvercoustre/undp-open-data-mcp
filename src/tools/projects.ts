@@ -13,6 +13,52 @@ import { errorResult, jsonResult, matchesQuery, paginate, round, toNumber, trunc
 
 type Row = Record<string, any>;
 
+/** The API caps `limit` at 1000 per request, whatever larger value is asked for. */
+const MAX_PAGE_SIZE = 1000;
+/** Safety valve so a pathological filter can never fetch unbounded pages. */
+const MAX_PAGES = 12;
+
+/**
+ * Fetch every project matching the server-side filters, following pagination.
+ *
+ * Needed because `query` is a text search the upstream API does not support: to
+ * search honestly we must hold the whole filtered set, not just one page. At 1000
+ * rows per request a full year is ~5 calls, and each page is cached individually.
+ */
+async function fetchAllProjects(
+  filters: Record<string, unknown>,
+): Promise<{ rows: Row[]; total: number; truncated: boolean }> {
+  const readPage = async (offset: number) => {
+    const payload = await getJson<Row>("/api/project_list/", {
+      ...filters,
+      limit: MAX_PAGE_SIZE,
+      offset,
+    });
+    const body = payload?.data ?? {};
+    return { rows: (body?.data ?? []) as Row[], total: (body?.count ?? 0) as number };
+  };
+
+  // The first page reveals the total, which tells us how many more to fetch.
+  const first = await readPage(0);
+  const total = first.total;
+
+  if (first.rows.length === 0 || first.rows.length >= total) {
+    return { rows: first.rows, total, truncated: false };
+  }
+
+  const pagesNeeded = Math.ceil(total / MAX_PAGE_SIZE);
+  const pagesToFetch = Math.min(pagesNeeded, MAX_PAGES);
+  const truncated = pagesNeeded > MAX_PAGES;
+
+  // Fetch the remainder concurrently: sequential paging made a full year take ~40s,
+  // while each page costs only ~1s on its own.
+  const rest = await Promise.all(
+    Array.from({ length: pagesToFetch - 1 }, (_, i) => readPage((i + 1) * MAX_PAGE_SIZE)),
+  );
+
+  return { rows: [...first.rows, ...rest.flatMap((page) => page.rows)], total, truncated };
+}
+
 /** Flatten the `[{code,name}]` taxonomy arrays the project list embeds. */
 const names = (values: unknown): string[] =>
   Array.isArray(values)
@@ -43,8 +89,18 @@ export function registerProjectTools(server: McpServer): void {
         query: z
           .string()
           .optional()
-          .describe("Client-side filter on project title or description, applied to the fetched page."),
-        limit: z.number().int().min(1).max(100).default(25),
+          .describe(
+            "Free-text search over the title and description of EVERY project matching the other " +
+              "filters, not just one page. Costs a few extra requests on a cold cache. Combine with " +
+              "`year`/`operating_unit` to keep it quick.",
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .default(25)
+          .describe("Projects per page (max 50). Each carries SDG, donor and marker lists, so a larger page cannot fit one result."),
         offset: z.number().int().min(0).default(0),
         include_description: z.boolean().default(true).describe("Include the (truncated) project description."),
       },
@@ -53,36 +109,67 @@ export function registerProjectTools(server: McpServer): void {
       try {
         const { query, limit, offset, include_description, ...filters } = args;
 
+        // Descriptions dominate the payload, so give each one a smaller share as the
+        // page grows. Keeps a full page comfortably under the result-size ceiling.
+        const descriptionChars = limit <= 25 ? 400 : 250;
+
+        const compact = (row: Row) => ({
+          project_id: row.project_id,
+          title: row.title,
+          ...(include_description ? { description: truncate(row.description, descriptionChars) } : {}),
+          country: row.country,
+          budget: toNumber(row.budget),
+          expense: toNumber(row.expense),
+          sdgs: names(row.sdg),
+          focus_areas: names(row.sector),
+          signature_solutions: names(row.signature_solution),
+          donors: names(row.donor),
+          markers: names(row.marker),
+        });
+
+        // Text search: pull the whole filtered set, then match and paginate locally,
+        // so counts reflect every project rather than an arbitrary first page.
+        if (query) {
+          const { rows: all, total, truncated } = await fetchAllProjects(filters);
+          const matched = all.filter((row) => matchesQuery(row, query, ["title", "description"]));
+          const page = paginate(matched, limit, offset);
+
+          return jsonResult({
+            filters: { ...filters, query },
+            searched: all.length,
+            total_matching_filters: total,
+            total_matching_query: matched.length,
+            total: page.total,
+            returned: page.returned,
+            limit: page.limit,
+            offset: page.offset,
+            has_more: page.has_more,
+            next_offset: page.next_offset,
+            ...(truncated
+              ? {
+                  warning:
+                    `Only the first ${all.length} of ${total} projects were searched (page cap reached). ` +
+                    "Add filters such as `operating_unit` to search the whole set.",
+                }
+              : {}),
+            items: page.items.map(compact),
+          });
+        }
+
         const payload = await getJson<Row>("/api/project_list/", { ...filters, limit, offset });
         const body = payload?.data ?? {};
         const rows: Row[] = body?.data ?? [];
         const total: number = body?.count ?? rows.length;
 
-        const filtered = query ? rows.filter((row) => matchesQuery(row, query, ["title", "description"])) : rows;
-
         return jsonResult({
-          filters: { ...filters, query },
-          // `total` is the upstream count for the filter set; the page itself may be
-          // narrowed further by `query`, which is applied client-side.
+          filters,
           total_matching_filters: total,
-          returned: filtered.length,
+          returned: rows.length,
           limit,
           offset,
           has_more: offset + rows.length < total,
           next_offset: offset + rows.length < total ? offset + rows.length : null,
-          items: filtered.map((row) => ({
-            project_id: row.project_id,
-            title: row.title,
-            ...(include_description ? { description: truncate(row.description, 400) } : {}),
-            country: row.country,
-            budget: toNumber(row.budget),
-            expense: toNumber(row.expense),
-            sdgs: names(row.sdg),
-            focus_areas: names(row.sector),
-            signature_solutions: names(row.signature_solution),
-            donors: names(row.donor),
-            markers: names(row.marker),
-          })),
+          items: rows.map(compact),
         });
       } catch (error) {
         return errorResult(error);
