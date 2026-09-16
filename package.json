@@ -4,7 +4,8 @@
   "description": "MCP server for the UNDP Open Data API (api.open.undp.org)",
   "type": "module",
   "bin": {
-    "undp-open-data-mcp": "dist/index.js"
+    "undp-open-data-mcp": "dist/index.js",
+    "undp-open-data-mcp-http": "dist/http-server.js"
   },
   "main": "dist/index.js",
   "files": [
@@ -14,7 +15,8 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "start:http": "node dist/http-server.js"
   },
   "engines": {
     "node": ">=18"

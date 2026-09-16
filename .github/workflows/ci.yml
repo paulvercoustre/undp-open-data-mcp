@@ -49,6 +49,9 @@ jobs:
       - name: Minimal-argument tests
         run: node test/minimal-args.mjs
         timeout-minutes: 10
+      - name: HTTP transport tests
+        run: node test/http.mjs
+        timeout-minutes: 10
       # test/as-desktop.mjs is deliberately excluded: it reads the local
       # claude_desktop_config.json, which does not exist on a runner.
 
@@ -77,3 +80,19 @@ jobs:
         with:
           name: undp-open-data-mcpb
           path: undp-open-data.mcpb
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t undp-mcp:ci .
+      - name: Container serves /health
+        run: |
+          docker run -d --name undp-mcp -p 3000:3000 undp-mcp:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/health; then echo; exit 0; fi
+            sleep 1
+          done
+          echo "health check never passed"; docker logs undp-mcp; exit 1

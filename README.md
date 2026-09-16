@@ -181,6 +181,17 @@ clients rejected as required-but-missing, so defaults are applied in the handler
 Data from the [UNDP Open Data API](https://api.open.undp.org). Financial values are USD;
 `budget` is allocated funding and `expenditure` is spent.
 
+## Hosting it (remote connector)
+
+`dist/index.js` is the stdio server local clients run. `dist/http-server.js` serves the same
+15 tools over Streamable HTTP so it can be hosted and added to claude.ai as a custom
+connector — the only way to reach it from the web app or mobile, which cannot talk to local
+servers. See **[DEPLOY.md](DEPLOY.md)**.
+
+```bash
+npm run build && npm run start:http   # POST /mcp, GET /health
+```
+
 ## CI
 
 [GitHub Actions](.github/workflows/ci.yml) runs on every push and PR, plus weekly to catch
