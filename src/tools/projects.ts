@@ -99,15 +99,15 @@ export function registerProjectTools(server: McpServer): void {
           .int()
           .min(1)
           .max(50)
-          .default(25)
+          .optional()
           .describe("Projects per page (max 50). Each carries SDG, donor and marker lists, so a larger page cannot fit one result."),
-        offset: z.number().int().min(0).default(0),
-        include_description: z.boolean().default(true).describe("Include the (truncated) project description."),
+        offset: z.number().int().min(0).optional(),
+        include_description: z.boolean().optional().describe("Include the (truncated) project description."),
       },
     },
     async (args) => {
       try {
-        const { query, limit, offset, include_description, ...filters } = args;
+        const { query, limit = 25, offset = 0, include_description = true, ...filters } = args;
 
         // Descriptions dominate the payload, so give each one a smaller share as the
         // page grows. Keeps a full page comfortably under the result-size ceiling.
@@ -187,12 +187,12 @@ export function registerProjectTools(server: McpServer): void {
         "undp_search_projects.",
       inputSchema: {
         project_id: z.string().describe("Project id, e.g. '00122701'."),
-        include_outputs: z.boolean().default(true).describe("Include the project's outputs."),
-        include_documents: z.boolean().default(false).describe("Include linked document titles and URLs."),
-        include_locations: z.boolean().default(false).describe("Include subnational locations with coordinates."),
+        include_outputs: z.boolean().optional().describe("Include the project's outputs."),
+        include_documents: z.boolean().optional().describe("Include linked document titles and URLs."),
+        include_locations: z.boolean().optional().describe("Include subnational locations with coordinates."),
       },
     },
-    async ({ project_id, include_outputs, include_documents, include_locations }) => {
+    async ({ project_id, include_outputs = true, include_documents = false, include_locations = false }) => {
       try {
         const project = await getJson<Row>(`/api/projects/${encodeURIComponent(project_id)}.json`);
 
@@ -299,14 +299,14 @@ export function registerProjectTools(server: McpServer): void {
         "outputs are summarised by default.",
       inputSchema: {
         iso3: z.string().describe("Operating unit iso3 code, e.g. 'KEN'."),
-        include_outputs: z.boolean().default(false).describe("Include each project's outputs. Verbose."),
-        include_locations: z.boolean().default(false).describe("Include subnational locations."),
+        include_outputs: z.boolean().optional().describe("Include each project's outputs. Verbose."),
+        include_locations: z.boolean().optional().describe("Include subnational locations."),
         query: z.string().optional().describe("Filter projects by title."),
-        limit: z.number().int().min(1).max(100).default(25),
-        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
       },
     },
-    async ({ iso3, include_outputs, include_locations, query, limit, offset }) => {
+    async ({ iso3, include_outputs = false, include_locations = false, query, limit = 25, offset = 0 }) => {
       try {
         const unit = await getJson<Row>(`/api/units/${encodeURIComponent(iso3.toUpperCase())}.json`);
         const all: Row[] = unit.projects ?? [];
@@ -367,16 +367,16 @@ export function registerProjectTools(server: McpServer): void {
         year: z.string().describe("Four-digit year, e.g. '2023'."),
         group_by: z
           .enum(["operating_unit", "region", "donor_country", "donor_type", "crs", "core_vs_noncore"])
-          .default("operating_unit")
+          .optional()
           .describe("Dimension to group by."),
         operating_unit: z.string().optional().describe("Restrict to one operating unit iso3."),
         region: z.string().optional().describe("Restrict to one region id, e.g. 'RBA'."),
         donor_country: z.string().optional().describe("Restrict to projects funded by this donor country iso3."),
-        sort_by: z.enum(["budget", "expenditure", "projects"]).default("budget"),
-        limit: z.number().int().min(1).max(200).default(25),
+        sort_by: z.enum(["budget", "expenditure", "projects"]).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
       },
     },
-    async ({ year, group_by, operating_unit, region, donor_country, sort_by, limit }) => {
+    async ({ year, group_by = "operating_unit", operating_unit, region, donor_country, sort_by = "budget", limit = 25 }) => {
       try {
         const summaries = await getJson<Row[]>(`/api/project_summary_${encodeURIComponent(year)}.json`);
 

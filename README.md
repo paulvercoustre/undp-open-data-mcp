@@ -163,9 +163,13 @@ binary download, not something to hand back through a tool call.
 
 ```bash
 node test/smoke.mjs
+node test/minimal-args.mjs
 ```
 
-Drives the server as a real MCP client over stdio and exercises all 15 tools.
+`smoke.mjs` drives the server as a real MCP client over stdio and exercises all 15 tools.
+`minimal-args.mjs` calls every tool with optional parameters omitted, and fails if any input
+schema emits a JSON-Schema `default` — Zod's `.default()` produced schemas that some MCP
+clients rejected as required-but-missing, so defaults are applied in the handlers instead.
 `test/edge.mjs` covers the 37 MB donor path, error handling and pagination continuity.
 
 ## Data source

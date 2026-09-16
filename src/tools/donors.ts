@@ -25,11 +25,11 @@ export function registerDonorTools(server: McpServer): void {
       inputSchema: {
         query: z.string().min(2).describe("Case-insensitive match on donor name or id, e.g. 'germany', 'gates'."),
         country: z.string().optional().describe("Filter by the donor's country code, e.g. 'DEU'."),
-        limit: z.number().int().min(1).max(100).default(25),
-        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
       },
     },
-    async ({ query, country, limit, offset }) => {
+    async ({ query, country, limit = 25, offset = 0 }) => {
       try {
         // ~37 MB on a cold cache; the client dedupes concurrent fetches.
         const donors = await getJson<Row[]>("/api/donor-index.json");
@@ -69,14 +69,14 @@ export function registerDonorTools(server: McpServer): void {
         query: z.string().optional().describe("Case-insensitive match on country name or iso3 code."),
         include_organisations: z
           .boolean()
-          .default(false)
+          .optional()
           .describe("Include each country's contributing organisations. Verbose — pair with `query`."),
-        sort_by: z.enum(["budget", "name"]).default("budget"),
-        limit: z.number().int().min(1).max(100).default(25),
-        offset: z.number().int().min(0).default(0),
+        sort_by: z.enum(["budget", "name"]).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
       },
     },
-    async ({ query, include_organisations, sort_by, limit, offset }) => {
+    async ({ query, include_organisations = false, sort_by = "budget", limit = 25, offset = 0 }) => {
       try {
         const countries = await getJson<Row[]>("/api/donor-country-index.json");
 

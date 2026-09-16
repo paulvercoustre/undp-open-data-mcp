@@ -57,13 +57,13 @@ export function registerReferenceTools(server: McpServer): void {
         fund_type: z.string().optional().describe("Filter by fund type, e.g. 'Core', 'Other'."),
         sort_by: z
           .enum(["name", "budget", "expenditure", "projects"])
-          .default("name")
+          .optional()
           .describe("Sort key. Financial sorts are descending."),
-        limit: z.number().int().min(1).max(200).default(50),
-        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional(),
       },
     },
-    async ({ query, fund_type, sort_by, limit, offset }) => {
+    async ({ query, fund_type, sort_by = "name", limit = 50, offset = 0 }) => {
       try {
         const units = await getJson<Row[]>("/api/units/operating-unit-index.json");
 
@@ -110,11 +110,11 @@ export function registerReferenceTools(server: McpServer): void {
       inputSchema: {
         include_countries: z
           .boolean()
-          .default(false)
+          .optional()
           .describe("Include the member-country list for each region. Adds substantial output."),
       },
     },
-    async ({ include_countries }) => {
+    async ({ include_countries = false }) => {
       try {
         const regions = await getJson<Row[]>("/api/region-index.json");
 
@@ -157,11 +157,11 @@ export function registerReferenceTools(server: McpServer): void {
         budget_source: z.string().optional().describe("Budget source iso3 or donor code."),
         include_targets: z
           .boolean()
-          .default(false)
+          .optional()
           .describe("Include per-target breakdown. Best combined with `sdg` — it is verbose."),
       },
     },
-    async ({ year, sdg, operating_unit, budget_source, include_targets }) => {
+    async ({ year, sdg, operating_unit, budget_source, include_targets = false }) => {
       try {
         const goals = await getJson<Row[]>("/api/sdg-index.json", { year, sdg, operating_unit, budget_source });
 
@@ -215,12 +215,12 @@ export function registerReferenceTools(server: McpServer): void {
         sdg: z.string().optional().describe("SDG code 1-17."),
         target: z.string().optional().describe("Specific target id, e.g. '1.1'."),
         year: z.string().optional().describe("Four-digit year."),
-        include_top_donors: z.boolean().default(false).describe("Include the top donors funding each target."),
-        limit: z.number().int().min(1).max(200).default(50),
-        offset: z.number().int().min(0).default(0),
+        include_top_donors: z.boolean().optional().describe("Include the top donors funding each target."),
+        limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional(),
       },
     },
-    async ({ sdg, target, year, include_top_donors, limit, offset }) => {
+    async ({ sdg, target, year, include_top_donors = false, limit = 50, offset = 0 }) => {
       try {
         const payload = await getJson<unknown>("/api/target-index.json", { sdg, target, year });
         const rows: Row[] = Array.isArray(payload)
@@ -258,10 +258,10 @@ export function registerReferenceTools(server: McpServer): void {
         year: z.string().optional().describe("Four-digit year."),
         operating_unit: z.string().optional().describe("Operating unit iso3."),
         budget_source: z.string().optional().describe("Budget source iso3 or donor code."),
-        include_top_donors: z.boolean().default(false).describe("Include the top donors per focus area."),
+        include_top_donors: z.boolean().optional().describe("Include the top donors per focus area."),
       },
     },
-    async ({ year, operating_unit, budget_source, include_top_donors }) => {
+    async ({ year, operating_unit, budget_source, include_top_donors = false }) => {
       try {
         const areas = await getJson<Row[]>("/api/focus-area-index.json", { year, operating_unit, budget_source });
 
@@ -307,11 +307,11 @@ export function registerReferenceTools(server: McpServer): void {
       inputSchema: {
         include_details: z
           .boolean()
-          .default(false)
+          .optional()
           .describe("Include top budget sources and top recipient offices for each solution."),
       },
     },
-    async ({ include_details }) => {
+    async ({ include_details = false }) => {
       try {
         const payload = await getJson<Row>("/api/signature-solutions-index.json");
         const solutions: Row[] = payload.signature_solutions ?? [];
@@ -355,10 +355,10 @@ export function registerReferenceTools(server: McpServer): void {
       inputSchema: {
         year: z.string().optional().describe("Four-digit year."),
         operating_unit: z.string().optional().describe("Operating unit iso3."),
-        include_top_donors: z.boolean().default(false).describe("Include top donors and recipients per marker."),
+        include_top_donors: z.boolean().optional().describe("Include top donors and recipients per marker."),
       },
     },
-    async ({ year, operating_unit, include_top_donors }) => {
+    async ({ year, operating_unit, include_top_donors = false }) => {
       try {
         const markers = await getJson<Row[]>("/api/our-approaches-index.json", { year, operating_unit });
 
