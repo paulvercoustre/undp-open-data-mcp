@@ -42,7 +42,7 @@ node test/smoke.mjs
 From an interactive terminal:
 
 ```bash
-claude mcp add undp-open-data --scope user -- node /Users/paulvercoustre/Documents/data_science/LLMs/undp_db_mcp/dist/index.js
+claude mcp add undp-open-data --scope user -- node /absolute/path/to/undp-open-data-mcp/dist/index.js
 ```
 
 `--scope user` makes it available in every project. Use `--scope project` instead to
@@ -58,7 +58,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
   "mcpServers": {
     "undp-open-data": {
       "command": "node",
-      "args": ["/Users/paulvercoustre/Documents/data_science/LLMs/undp_db_mcp/dist/index.js"]
+      "args": ["/absolute/path/to/undp-open-data-mcp/dist/index.js"]
     }
   }
 }
@@ -179,3 +179,11 @@ clients rejected as required-but-missing, so defaults are applied in the handler
 
 Data from the [UNDP Open Data API](https://api.open.undp.org). Financial values are USD;
 `budget` is allocated funding and `expenditure` is spent.
+
+## Disclaimer
+
+An independent project that reads UNDP's public Open Data API. Not an official UNDP
+product and not endorsed by UNDP. Data belongs to UNDP; see
+[api.open.undp.org](https://api.open.undp.org) for their terms.
+
+Licensed MIT — see [LICENSE](LICENSE).
