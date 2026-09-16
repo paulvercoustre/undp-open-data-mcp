@@ -165,8 +165,9 @@ binary download, not something to hand back through a tool call.
 ## Tests
 
 ```bash
-node test/smoke.mjs
-node test/minimal-args.mjs
+node test/schema.mjs        # offline: schema contract, no network
+node test/smoke.mjs         # hits the live UNDP API
+node test/minimal-args.mjs  # hits the live UNDP API
 ```
 
 `smoke.mjs` drives the server as a real MCP client over stdio and exercises all 15 tools.
@@ -179,6 +180,21 @@ clients rejected as required-but-missing, so defaults are applied in the handler
 
 Data from the [UNDP Open Data API](https://api.open.undp.org). Financial values are USD;
 `budget` is allocated funding and `expenditure` is spent.
+
+## CI
+
+[GitHub Actions](.github/workflows/ci.yml) runs on every push and PR, plus weekly to catch
+upstream API changes:
+
+- **Build and schema contract** — Node 20 and 22. `test/schema.mjs` inspects `tools/list`
+  only and does no network I/O, so it stays meaningful when the UNDP API is down.
+- **Live API tests** — kept in a separate job so an upstream outage reads as an upstream
+  problem, not a broken build.
+- **Extension builds** — packs the `.mcpb`, runs the server from inside it, and uploads it
+  as a build artifact.
+
+`test/as-desktop.mjs` is excluded from CI: it reads the local `claude_desktop_config.json`,
+which does not exist on a runner.
 
 ## Disclaimer
 

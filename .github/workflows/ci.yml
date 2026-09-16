@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Catch upstream API changes even when nobody is pushing.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and schema contract
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20.x", "22.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Offline: the server does no network I/O when registering tools, so this
+      # stays meaningful even if the UNDP API is unreachable.
+      - name: Schema contract
+        run: node test/schema.mjs
+
+  integration:
+    name: Live API tests
+    runs-on: ubuntu-latest
+    # Separate job so a UNDP API outage is visibly an upstream problem rather
+    # than looking like a broken build.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Smoke tests (hits api.open.undp.org)
+        run: node test/smoke.mjs
+        timeout-minutes: 10
+      - name: Minimal-argument tests
+        run: node test/minimal-args.mjs
+        timeout-minutes: 10
+      # test/as-desktop.mjs is deliberately excluded: it reads the local
+      # claude_desktop_config.json, which does not exist on a runner.
+
+  bundle:
+    name: Extension builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: npm
+      - run: npm ci
+      - name: Build .mcpb
+        run: ./scripts/build-mcpb.sh
+      - name: Verify the bundle runs
+        run: |
+          unzip -q undp-open-data.mcpb -d /tmp/bundle
+          printf '%s\n%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            | node /tmp/bundle/server/index.js 2>/dev/null | tail -1 \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const n=JSON.parse(s).result.tools.length;console.log(`bundle exposes ${n} tools`);process.exit(n===15?0:1);})'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: undp-open-data-mcpb
+          path: undp-open-data.mcpb
