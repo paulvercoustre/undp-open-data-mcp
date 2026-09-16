@@ -7,6 +7,9 @@ No API key or authentication required.
 
 ## Install
 
+Sharing this with non-technical colleagues? See **[INSTALL.md](INSTALL.md)** for the
+one-file Claude Desktop extension and what to tell people about the data.
+
 `dist/` is gitignored, so build after cloning:
 
 ```bash
